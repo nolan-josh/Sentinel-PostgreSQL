@@ -7,29 +7,33 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 import uuid
 
 
-
-class document_ingestor():
-    """
-    Class to ingest documents and store them into qdrant vector database.
-    
-    """
-    
+class Config:
     INPUT_FOLDER = r"../data/documents"
     EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
     QDRANT_URL = "http://localhost:6333"
     COLLECTION_NAME = "Vector_collection_cyber_docs"
 
+
+
+class DocumentIngestor:
+    
+    """
+    Class to ingest documents and store them into qdrant vector database.
+    
+    """
+
+    def __init__(self):
+        self.INPUT_FOLDER = Config.INPUT_FOLDER
+        self.COLLECTION_NAME = Config.COLLECTION_NAME
+        self.embedder = SentenceTransformer(Config.EMBEDDING_MODEL)
+        self.qdrant = QdrantClient(url=Config.QDRANT_URL)
+        self.text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50,
+        length_function=len
+        )
     
     
-    Document_Text_Dictionary = {}
-    embedder = SentenceTransformer(EMBEDDING_MODEL)
-    qdrant = QdrantClient(url=QDRANT_URL)
-    
-    text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=50,
-    length_function=len
-    )
     ## read in each docuemnts data store as key : value pair document name : text
     def extractText(self):
         """
@@ -52,18 +56,16 @@ class document_ingestor():
         return data_dict
                 
     
-    def chunk_docs(self, Dictionary):
+    def chunk_docs(self, dictionary: dict[str, dict[str, int]]):
         """
         Langhchain expects list of length 1 with a string, if we pass just data to create_documents it 
         treats data as an intterable so hello = ['h', 'e', 'l', 'l', 'o'].
         """
         total_chunks = []
-        for filename, data in Dictionary.items(): 
+        for filename, data in dictionary.items(): 
             for entry in data:
                 text = str(entry["text"])
-                page_number = int(entry["page_number"])
-                print(f"\n text: {text} at page: {page_number}")
-                
+                page_number = int(entry["page_number"])                
                 chunks = self.text_splitter.create_documents(
                     texts=[entry["text"]], 
                     metadatas=[{"source": filename, "page_number": page_number}])
@@ -86,7 +88,7 @@ class document_ingestor():
         
         
     
-    def create_embeddings(self, chunks_Dataset):
+    def create_embeddings(self, chunks_dataset):
         """
         Create the embeddings which we store with the meta data of that chunk into a "point". "points" are the central entity
         that Qdrant operates with according to their website. A point consits of a vector and optional payload
@@ -104,7 +106,7 @@ class document_ingestor():
         ## itterate over chunks
         # for each chunk we get the page num the source, the page content and the vector embedding
         # into qdrant db we store payload as page content (chunk text), page number, document source and the vector as the vector
-        chunks = [chunk.page_content for chunk in chunks_Dataset]
+        chunks = [chunk.page_content for chunk in chunks_dataset]
         vectors = self.embedder.encode(chunks)
         points=[]
         
@@ -115,7 +117,7 @@ class document_ingestor():
                                    "chunksource": chunk.metadata["source"], 
                                     "pagenumber": chunk.metadata["page_number"], 
                                     "chunktext": chunk.page_content
-                                }) for index, chunk in enumerate(chunks_Dataset)]
+                                }) for index, chunk in enumerate(chunks_dataset)]
        
     
                 
@@ -128,17 +130,63 @@ class document_ingestor():
         print(operation_info)
         
         
+        
+class RagAgent:
+    def __init__(self):
+        self.INPUT_FOLDER = Config.INPUT_FOLDER
+        self.embedder = SentenceTransformer(Config.EMBEDDING_MODEL)
+        self.qdrant = QdrantClient(url=Config.QDRANT_URL)
+        self.COLLECTION_NAME = Config.COLLECTION_NAME
+
+        
+    def retrieve_chunks(self, query: str):
+        
+        Query_vector = self.embedder.encode(query)
+        
+        search_result = self.qdrant.query_points(
+            collection_name=self.COLLECTION_NAME,
+            query=Query_vector,
+            with_payload=True,
+            limit=3
+        ).points
+
+        for point in search_result:
+            print(point.score)
+            print(point.payload, "\n")
+        
+        ## get query as vector using embeddings of user query / question
+        ## collection name
+        # top_k, how many results back
+    
+        # search results store as list of scorepoint objects
+            # has .score and .payload
+            # this returns the chunks we use as context when calling thje LLM, this is the retreival
+        
+        
+                
+        
 def main():
-    DI = document_ingestor()
-    Dictionary = DI.extractText()
-    Chunks = DI.chunk_docs(Dictionary)
     
-    for var in Chunks:
-        print(f"\n, {var.page_content} at page {var.metadata["page_number"]}")
-        break
+    def vector_Database_creation(document_ingestor: DocumentIngestor):
+            Dictionary = document_ingestor.extractText()
+            Chunks = document_ingestor.chunk_docs(Dictionary)
+            
+            for var in Chunks:
+                print(f"\n, {var.page_content} at page {var.metadata["page_number"]}")
+                break
+            
+            document_ingestor.create_qdrant_collection()
+            document_ingestor.create_embeddings(Chunks)
+            print(f"vector DB created") 
     
-    DI.create_qdrant_collection()
-    DI.create_embeddings(Chunks)
+    #DI = DocumentIngestor()        
+    #vector_Database_creation(DI)
+    # Agent = RagAgent()
+    # Agent.retrieve_chunks("What can I do to strengthen my network infrastructure?")
+    
+    
+    
+    
     
 if __name__ == "__main__":
     main()
