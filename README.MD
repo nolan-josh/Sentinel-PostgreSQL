@@ -1,4 +1,4 @@
-AUTHOR: @nolan-josh 
+AUTHOR: [@nolan-josh ](https://github.com/nolan-josh)
 
 This is a project designed to be a mulit agent chain of models used to detect, monitor and report back on security threats and provide real time alerts.
 
