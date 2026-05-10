@@ -157,6 +157,10 @@ class DataGenerator:
             "message": "Executable downloaded from external source",
         }
 
+    @staticmethod
+    def weighted_choice(EVENT_GENERATORS):
+        methods, weights = zip(*EVENT_GENERATORS)
+        return random.choices(methods, weights=weights, k=1)[0]
 
 
 
@@ -175,9 +179,7 @@ def main():
     ]
 
 
-    def weighted_choice():
-        methods, weights = zip(*EVENT_GENERATORS)
-        return random.choices(methods, weights=weights, k=1)[0]
+  
 
     if not os.path.exists(DG.OUTPUT_FOLDER):
         os.makedirs(DG.OUTPUT_FOLDER)
@@ -185,7 +187,7 @@ def main():
 
     with open(DG.OUTPUT_FILE, "w") as f:
         for i in range(DG.NUM_logs):
-            method = weighted_choice()
+            method = DG.weighted_choice(EVENT_GENERATORS)
             log = method()
             log["log_ID"] = str(uuid.uuid4())
             f.write(json.dumps(log)+ "\n")

@@ -1,4 +1,10 @@
 services: 
+  live_data_generator:
+    build:
+      context: .
+      dockerfile: python_caller.dockerfile
+    depends_on: # it will wait for mongoDB to be running
+      - mongoDB
   mongoDB:
     image: mongo:7
     container_name: sentinel-mongodb
