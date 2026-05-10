@@ -1,6 +1,33 @@
-venv/ 
-data/ 
+venv/
+data/
 .deepeval/
 .env
 __pycache__/
 *.pyc
+
+# Python
+*.pyo
+*.pyd
+.Python
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
