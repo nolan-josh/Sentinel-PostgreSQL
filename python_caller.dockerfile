@@ -9,6 +9,7 @@ WORKDIR /python_scripts
 # Copy the Python script into the container's working directory 
 COPY /scripts/live_data_generator.py /python_scripts
 COPY /scripts/data_generator.py /python_scripts
+COPY /scripts/ingest_logs.py /python_scripts
 
 RUN pip install pymongo faker
 
