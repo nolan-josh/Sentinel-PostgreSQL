@@ -12,6 +12,8 @@ from langgraph.graph import StateGraph, START, END
 from io import BytesIO
 from PIL import Image
 from typing import Annotated, Dict, TypedDict, List, Sequence
+from bson import ObjectId
+
 
 
 def print_stream(stream):
@@ -46,7 +48,34 @@ def get_IP_info(IP: str):
         data.append(document)
     return data
 
-tools = [get_IP_info]
+
+@tool
+def escalate_alert_entry(id: str, new_severity: str):
+    """A method that is used to elevate the severity of a db entry in the alerts collection in the mongoDB database
+_
+
+    Args:
+        id (str): The _id from the mongoDB entry that requires escalting. the _id is unique to each entry in the collection
+        new_severity (str): The new severity that the entry in thje collection should be updated to have
+
+    Returns:
+        True if it worked else False
+    """
+    try:
+        alerts_collection.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"severities": new_severity}}
+        )
+        return f"{True} for _id: {ObjectId(id)}"
+    except Exception as e:
+        print("error")
+        return False
+        
+    
+    
+    
+
+tools = [get_IP_info, escalate_alert_entry]
 
 def listen(graph: StateGraph):
     connected = False
@@ -60,13 +89,13 @@ def listen(graph: StateGraph):
             with alerts_collection.watch() as changes:
                         for change in changes:
                             print(f'change found: {change['fullDocument']}')
-                            print(f"\n {str(change['fullDocument'])}")
+                            # print(f"\n {str(change['fullDocument'])}")
                             try:
                                 ## invoke graph
                                 inputs = {"messages": 
                                     [(
                                         "user", 
-                                        f"We have detected a new entry in our alerts collection within our database. Using the data below please determine if the severity needs to be escelated based on thise source_ip's existing history in the database. data is here: {str(change['fullDocument'])}")]}
+                                        f"We have detected a new entry in our alerts collection within our database. Using the data below please determine if the severity needs to be escelated based on thise source_ip's existing history in the database. data is here: {str(change['fullDocument'])}. Once you have made your decision based on then data you pulled from the db for that IP, please update the entry in my collection to the more appropriate severity.")]}
                                 print_stream(app.stream(inputs, stream_mode="values"))
                                 return
                             except Exception as error:
