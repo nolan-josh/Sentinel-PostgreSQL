@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 import time
 
+
 db = client = MongoClient("mongodb://mongoDB:27017/?replicaSet=rs0")["sentinel_ai"] # uses replica 0 for .watch() later on
 logs_collection = db['logs']
 alerts_collection = db['alerts'] # (alerts collection is created first time we populate it)
