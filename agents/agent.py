@@ -76,7 +76,10 @@ def print_stream(stream):
 @tool
 def get_IP_info(IP: str):
     """A method used to query the mongoDB and return more info for entries with that same IP address."""
-    pipeline = [{ "$match": { "source_ip": IP } },]
+    pipeline = [
+        { "$match": { "source_ip": IP } },
+        { "$sort": { "timestamp": -1}},
+        { "$limit": 5},] # last 5 results to reduce token costs
     documents = logs_collection.aggregate(pipeline) 
     
     data = []
