@@ -16,6 +16,8 @@ from typing import Annotated, Dict, TypedDict, List, Sequence
 from bson import ObjectId
 import dotenv
 import operator
+import redis
+
 
 dotenv.load_dotenv()
 
@@ -261,7 +263,6 @@ def log_analyse_node(state: AgentState) -> AgentState:
     new_human_prompt = HumanMessage(content=f"""
         Based on the following information, determine if the suspect IP should be 
         added to watchlist, blocklist, or do nothing. Make the answer section of the output just be the word of the action you choose.
-        
         Suspect IP: {state["suspect_IP"]}
         Alert type: {state["alert_type"]}
         IP reputation data: {state["IP_info"]}
@@ -318,8 +319,16 @@ def create_graph() -> StateGraph:
     return graph
 
 def main():
-    graph = create_graph()
-    listen(graph=graph)
+    # graph = create_graph()
+    # listen(graph=graph)
+    
+    
+    # should be using sadd for redis set not list, we just need a set of IPs not a list
+    client = redis.Redis(host="localhost", port=6379, decode_responses=True)
+    client.delete("myset")
+    res1 = client.sadd("myset", "josh", "tom")
+    students = client.smembers("myset")
+    print(students)  # >>> 2
 
 
 if __name__ == "__main__":
