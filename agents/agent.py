@@ -254,10 +254,10 @@ class AnswerWithJustification(BaseModel):
     answer: str
     justification: str
 
-def log_analyse_node(state: AgentState) -> AgentState:
+def IP_doorman (state: AgentState) -> AgentState:
+    ## check the state and decide if we need to add to blocklist or watchlist
+    ## acts as a doorman   
     
-    ## check the state and decide if we need to block it
-    # update action_decision based on this
     system_prompt = SystemMessage(content="you are an ai assistant in my cyber security team working with a SOC system, using the state answer my question to the best of your ability")
     new_human_prompt = HumanMessage(content=f"""
         Based on the following information, determine if the suspect IP should be 
@@ -288,6 +288,28 @@ def log_analyse_node(state: AgentState) -> AgentState:
     
     return(state)
 
+def log_analysis_node(state: AgentState) -> AgentState:
+    """
+    Collects data from the mongoDB for the suspect_IP and returns most recent 10 in cronological order
+
+    Args:
+        state (AgentState): _description_
+
+    Returns:
+        AgentState: _description_
+    """
+    
+    pipeline = [
+        { "$match": { "source_ip": state["suspect_IP"] } },
+        { "$sort": { "timestamp": -1}},
+        { "$limit": 10},] # last X results - reduce token costs
+    documents = logs_collection.aggregate(pipeline) 
+    print(f"documents found:")
+    for document in documents:
+        print(document)
+        
+        
+    return state
     
 
 
@@ -308,8 +330,8 @@ def create_graph() -> StateGraph:
     print(type(tool_node))
     graph.add_node("tools", tool_node)
     graph.add_node("threat_intel_node", threat_intel_node)
-    graph.add_node("analysis_node", log_analyse_node)
-
+    graph.add_node("Doorman_node", IP_doorman)
+    graph.add_node("log_analysis_node", log_analysis_node)
 
     # the model knows to call the right tool in toolnode because it looks at last message 
     # it gets last message from agentstat that was passed when we crated graph = StateGraph(AgentState)
@@ -327,8 +349,9 @@ def create_graph() -> StateGraph:
         }
     )
     graph.add_edge("tools", "agent")
-    graph.add_edge("threat_intel_node", "analysis_node")
-    graph.add_edge("analysis_node", END)
+    graph.add_edge("threat_intel_node", "Doorman_node")
+    graph.add_edge("Doorman_node", "log_analysis_node")
+    graph.add_edge("log_analysis_node", END)
     
 
     ## after calling tool go back to agent so its ongoing 
@@ -337,6 +360,14 @@ def create_graph() -> StateGraph:
 def main():
     graph = create_graph()
     listen(graph=graph)
+    
+    #    pipeline = [
+    #     { "$match": { "source_ip": IP } },
+    #     { "$sort": { "timestamp": -1}},
+    #     { "$limit": 5},] # last 5 results to reduce token costs
+    # documents = logs_collection.aggregate(pipeline) 
+    
+    
     
 if __name__ == "__main__":
     main()
