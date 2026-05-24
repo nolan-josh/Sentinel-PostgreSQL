@@ -42,14 +42,6 @@ services:
       - "6333:6333"
     volumes: 
       - qdrant_data:/qdrant/storage
-  ollama:
-    image: ollama/ollama
-    container_name: sentinel-ollama
-    restart: always
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
 
 volumes: 
   #mongodb_data:

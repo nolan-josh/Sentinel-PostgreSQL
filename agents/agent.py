@@ -18,10 +18,10 @@ import dotenv
 import operator
 import redis
 
-
 dotenv.load_dotenv()
 
 mongo_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true")
+client = redis.Redis(host="localhost", port=6379, decode_responses=True)
 
 db = MongoClient(mongo_URL)["sentinel_ai"]        
 logs_collection = db['logs']
@@ -121,7 +121,7 @@ def listen(graph: StateGraph):
         try:     
             print("Listening...")
             with alerts_collection.watch() as changes:
-                        time.sleep(10)
+                        time.sleep(30)
                         for change in changes:
                             alert = change['fullDocument']
                             print(f'change found: {change['fullDocument']}')
@@ -143,7 +143,6 @@ def listen(graph: StateGraph):
                                 }
                                 print(f"initial state: {inputs}")
                                 print_stream(app.stream(inputs, stream_mode="values"))
-                                return
                             except Exception as error:
                                 print(f"error in calling agent: {str(error)}")
                         
@@ -262,7 +261,7 @@ def log_analyse_node(state: AgentState) -> AgentState:
     system_prompt = SystemMessage(content="you are an ai assistant in my cyber security team working with a SOC system, using the state answer my question to the best of your ability")
     new_human_prompt = HumanMessage(content=f"""
         Based on the following information, determine if the suspect IP should be 
-        added to watchlist, blocklist, or do nothing. Make the answer section of the output just be the word of the action you choose.
+        added to watchlist, blocklist, or nothing. Make the answer section of the output just be the word of the action you choose, watchlist, blocklist, nothing.
         Suspect IP: {state["suspect_IP"]}
         Alert type: {state["alert_type"]}
         IP reputation data: {state["IP_info"]}
@@ -270,6 +269,23 @@ def log_analyse_node(state: AgentState) -> AgentState:
     structured_model = model.with_structured_output(AnswerWithJustification)
     response = structured_model.invoke([system_prompt] + state["messages"] + [new_human_prompt])
     print(f"\n\n answer: {response.answer}")
+    #  client.flushall() <- this wipes entire redis db 
+    try:
+        
+        print(f"testing': {state["suspect_IP"]}")                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+        if state["suspect_IP"] in client.smembers("watchlist") or response.answer == "blocklist":
+            client.sadd("blocklist", state["suspect_IP"]) ## added to blocklist            
+            print(f"added {state["suspect_IP"]} to blocklist")
+        elif response.answer == "watchlist":
+            client.sadd("watchlist", state["suspect_IP"]) ## added to watchlist if not yet within it
+            print(f"added {state["suspect_IP"]} to watchlist")
+            
+        print(f"watchlist entries: {client.smembers("watchlist")}")
+        print(f"blocklist entries: {client.smembers("blocklist")}")
+        
+    except Exception as e:
+        print(f"failed in redis code within log_analysis_node {e}")
+    
     return(state)
 
     
@@ -319,20 +335,13 @@ def create_graph() -> StateGraph:
     return graph
 
 def main():
-    # graph = create_graph()
-    # listen(graph=graph)
+    graph = create_graph()
+    listen(graph=graph)
     
-    
-    # should be using sadd for redis set not list, we just need a set of IPs not a list
-    client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-    client.delete("myset")
-    res1 = client.sadd("myset", "josh", "tom")
-    students = client.smembers("myset")
-    print(students)  # >>> 2
-
-
 if __name__ == "__main__":
     main()
+
+
 
 
 
