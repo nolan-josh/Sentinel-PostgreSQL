@@ -126,6 +126,7 @@ def listen(graph: StateGraph):
                             alert = change['fullDocument']
                             print(f'change found: {change['fullDocument']}')
                             # print(f"\n {str(change['fullDocument'])}")
+                            
                             try:
                                 inputs = {
                                     "messages": [(
@@ -164,6 +165,7 @@ def model_call(state: AgentState) -> AgentState:
     
      # extract IP from tool calls if the agent called get_IP_info
     suspect_ip = state.get("suspect_IP", "")  # keep existing if already set
+    username = state.get("username")
     
     if response.tool_calls:
         for tool_call in response.tool_calls:
@@ -172,7 +174,8 @@ def model_call(state: AgentState) -> AgentState:
                 
     return {
         "messages": [response],
-        "suspect_IP": suspect_ip  # write IP to state
+        "suspect_IP": suspect_ip,  # write IP to state
+        "username": username
     }
 
 def should_LLM_call_tool(state: AgentState):
@@ -299,16 +302,44 @@ def log_analysis_node(state: AgentState) -> AgentState:
         AgentState: _description_
     """
     
-    pipeline = [
+    print(f"username of offender is: {state["username"]}")
+    
+    
+    username_pipeline = [
+        { "$match": { "source_ip": state["suspect_IP"] } },
+        { "$sort": { "timestamp": -1}},
+        { "$limit": 10},] # last X results - reduce 
+    
+    ip_pipeline = [
         { "$match": { "source_ip": state["suspect_IP"] } },
         { "$sort": { "timestamp": -1}},
         { "$limit": 10},] # last X results - reduce token costs
-    documents = logs_collection.aggregate(pipeline) 
-    print(f"documents found:")
-    for document in documents:
+    
+    
+    affected_host_pipeline = [
+        { "$match": { "affected_host": state["affected_host"] } },
+        { "$sort": { "timestamp": -1}},
+        { "$limit": 10},] # last X results - reduce token costs
+    
+    ip_logs = logs_collection.aggregate(ip_pipeline) 
+    username_logs = logs_collection.aggregate(username_pipeline) 
+    affected_host_logs = logs_collection.aggregate(affected_host_pipeline) 
+    data = []
+    print(f"IP logs:")
+    for document in ip_logs:
         print(document)
-        
-        
+        data.append(document)
+    print(f"username logs:")
+    for document in username_logs:
+        print(document)
+        data.append(document)
+    print(f"affected host logs:")
+    for document in affected_host_logs:
+        print(document)
+        data.append(document)
+    
+            
+    print(f"\n\ncurrent data to append to agent state for RAG node: {data}\n\n ")    
     return state
     
 
