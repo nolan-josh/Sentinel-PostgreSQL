@@ -157,7 +157,7 @@ class ThreatDetector:
     def __create_alert(self, type: str, severities: list[str], affected_hosts: list[str], timestamp: str, source_ip:str = None, username:list[str] = None):
         return {
         "alert_id": str(uuid.uuid4()),
-        "type": type,
+        "event_type": type,
         "severities": severities,
         "source_ip": source_ip,
         "affected_host": affected_hosts,

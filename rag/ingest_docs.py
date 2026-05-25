@@ -166,27 +166,21 @@ class RagAgent:
                 
         
 def main():
+    document_ingestor = DocumentIngestor()
+    Dictionary = document_ingestor.extractText()
+    Chunks = document_ingestor.chunk_docs(Dictionary)
     
-    def vector_Database_creation(document_ingestor: DocumentIngestor):
-            Dictionary = document_ingestor.extractText()
-            Chunks = document_ingestor.chunk_docs(Dictionary)
-            
-            for var in Chunks:
-                print(f"\n, {var.page_content} at page {var.metadata["page_number"]}")
-                break
-            
-            document_ingestor.create_qdrant_collection()
-            document_ingestor.create_embeddings(Chunks)
-            print(f"vector DB created") 
+    for var in Chunks:
+        print(f"\n, {var.page_content} at page {var.metadata["page_number"]}")
+        break
     
-    #DI = DocumentIngestor()        
-    #vector_Database_creation(DI)
-    # Agent = RagAgent()
-    # Agent.retrieve_chunks("What can I do to strengthen my network infrastructure?")
+    document_ingestor.create_qdrant_collection()
+    document_ingestor.create_embeddings(Chunks)
     
     
-    
-    
+    print(f"vector DB created") 
+
+
     
 if __name__ == "__main__":
     main()

@@ -17,11 +17,16 @@ from bson import ObjectId
 import dotenv
 import operator
 import redis
+from qdrant_client import QdrantClient
+from sentence_transformers import SentenceTransformer
 
+embedder = SentenceTransformer("BAAI/bge-base-en-v1.5")
 dotenv.load_dotenv()
-
 mongo_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true")
+QDRANT_URL = "http://localhost:6333"
+
 client = redis.Redis(host="localhost", port=6379, decode_responses=True)
+qdrant = QdrantClient(url=QDRANT_URL)
 
 db = MongoClient(mongo_URL)["sentinel_ai"]        
 logs_collection = db['logs']
@@ -55,9 +60,8 @@ class AgentState(TypedDict):
     alert_type: str
     affected_host: str                                    
     username: str
-    watchlist:  Annotated[list[str], operator.add]
-    blocked: Annotated[list[str], operator.add]
     action_decision: str
+    Contenxt_data: list
     # we need a reducer here for adding becasue if we just did state["watchlist"] = state["watchlist"] + new_list_data_to_add then
     # when two nodes run in parallel and both try to update watchlist at the same time — LangGraph doesn't know how to 
     # merge two different versions of the list, so one overwrites the other and you lose data.
@@ -126,7 +130,7 @@ def listen(graph: StateGraph):
                             alert = change['fullDocument']
                             print(f'change found: {change['fullDocument']}')
                             # print(f"\n {str(change['fullDocument'])}")
-                            
+                            print(f"alert type is -> {alert.get("event_type", "")}")
                             try:
                                 inputs = {
                                     "messages": [(
@@ -138,7 +142,7 @@ def listen(graph: StateGraph):
                                     
                                     "suspect_IP": alert.get("source_ip", ""),
                                     "alert_ID": alert.get("_id", ""),
-                                    "alert_type": alert.get("type", ""),
+                                    "alert_type": alert.get("event_type", ""),
                                     "affected_host": alert.get("affected_host", ""),
                                     "username": alert.get("username", "")
                                 }
@@ -321,11 +325,12 @@ def log_analysis_node(state: AgentState) -> AgentState:
         { "$sort": { "timestamp": -1}},
         { "$limit": 10},] # last X results - reduce token costs
     
-    ip_logs = logs_collection.aggregate(ip_pipeline) 
-    username_logs = logs_collection.aggregate(username_pipeline) 
-    affected_host_logs = logs_collection.aggregate(affected_host_pipeline) 
+    ## later we will pull from all logs not just alerts 
+    ip_logs = alerts_collection.aggregate(ip_pipeline) 
+    username_logs = alerts_collection.aggregate(username_pipeline) 
+    affected_host_logs = alerts_collection.aggregate(affected_host_pipeline) 
     data = []
-    print(f"IP logs:")
+    print(f"IP logs:") 
     for document in ip_logs:
         print(document)
         data.append(document)
@@ -338,12 +343,35 @@ def log_analysis_node(state: AgentState) -> AgentState:
         print(document)
         data.append(document)
     
-            
-    print(f"\n\ncurrent data to append to agent state for RAG node: {data}\n\n ")    
+    state["Context_data"] = data         
+    print(f"\n\ncurrent data to append to agent state for RAG node: {state["Context_data"]}\n\n ")    
     return state
     
 
+def RAG_node(state: AgentState) -> AgentState:
 
+    print(f"alert type: {state['alert_type']}")
+    # read current attack type to be used as the query into the qdrant database
+    collections = qdrant.get_collections()
+    first_collectin_name = collections.collections[0].name
+    # query is the alert_Type and we encode into a vector for qdrant query
+    query_vector = embedder.encode(state['alert_type']).tolist() 
+    print(f"first collection name: {first_collectin_name}")
+    query_results = qdrant.query_points(
+            collection_name=first_collectin_name,
+            query=query_vector,
+            limit = 5
+        ) 
+    
+    print("Search results:", query_results)
+
+
+    ## ------ report agent -------- ##
+    # think about what info from state to passa to model API call
+    # then invoke model with possing the data and with a structured output reply back (with_structured_output() method from earlier)
+    # write this report to a custom colleciton in mongoDB and also create a PDF file from this data in the same node 
+    pass
+    
 
 tools = [get_IP_info, escalate_alert_entry]
 model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
@@ -363,6 +391,8 @@ def create_graph() -> StateGraph:
     graph.add_node("threat_intel_node", threat_intel_node)
     graph.add_node("Doorman_node", IP_doorman)
     graph.add_node("log_analysis_node", log_analysis_node)
+    graph.add_node("RAG_node", RAG_node)
+    
 
     # the model knows to call the right tool in toolnode because it looks at last message 
     # it gets last message from agentstat that was passed when we crated graph = StateGraph(AgentState)
@@ -382,7 +412,8 @@ def create_graph() -> StateGraph:
     graph.add_edge("tools", "agent")
     graph.add_edge("threat_intel_node", "Doorman_node")
     graph.add_edge("Doorman_node", "log_analysis_node")
-    graph.add_edge("log_analysis_node", END)
+    graph.add_edge("log_analysis_node", "RAG_node")
+    graph.add_edge("RAG_node", END)
     
 
     ## after calling tool go back to agent so its ongoing 
