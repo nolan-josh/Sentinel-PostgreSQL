@@ -62,6 +62,7 @@ class AgentState(TypedDict):
     username: str
     action_decision: str
     Contenxt_data: list
+    RAG_Chunks_from_source: vars
     # we need a reducer here for adding becasue if we just did state["watchlist"] = state["watchlist"] + new_list_data_to_add then
     # when two nodes run in parallel and both try to update watchlist at the same time — LangGraph doesn't know how to 
     # merge two different versions of the list, so one overwrites the other and you lose data.
@@ -363,14 +364,14 @@ def RAG_node(state: AgentState) -> AgentState:
             limit = 5
         ) 
     
-    print("Search results:", query_results)
-
+    print(f"Search results type: {type(query_results)}")
+    state["RAG_Chunks_from_source"] = query_results
 
     ## ------ report agent -------- ##
     # think about what info from state to passa to model API call
     # then invoke model with possing the data and with a structured output reply back (with_structured_output() method from earlier)
     # write this report to a custom colleciton in mongoDB and also create a PDF file from this data in the same node 
-    pass
+
     
 
 tools = [get_IP_info, escalate_alert_entry]
