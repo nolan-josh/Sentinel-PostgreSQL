@@ -1,0 +1,70 @@
+[
+  {
+    "incident_id": "INC-001",
+    "incident_name": "Brute Force Attack",
+    "severity": "high",
+    "description": "Attacker repeatedly attempts to guess credentials before succeeding.",
+    "event_sequence": [
+      "failed_login (15+ times from same IP)",
+      "successful_login (same IP, same username)",
+      "powershell_execution",
+      "suspicious_download"
+    ],
+    "indicators": {
+      "event_types": ["failed_login", "successful_login", "powershell_execution"],
+      "threshold": {"failed_login": 15}
+    },
+    "expected_classification": "Brute Force",
+    "mitre_technique": "T1110"
+  },
+  {
+    "incident_id": "INC-002",
+    "incident_name": "Malware Infection with Lateral Movement",
+    "severity": "critical",
+    "description": "Malware detected on a host followed by attempts to spread across the network.",
+    "event_sequence": [
+      "malware_detected",
+      "privilege_escalation",
+      "file_access (sensitive paths)",
+      "suspicious_download"
+    ],
+    "indicators": {
+      "event_types": ["malware_detected", "privilege_escalation", "file_access"]
+    },
+    "expected_classification": "Malware with Lateral Movement",
+    "mitre_technique": "T1570"
+  },
+  {
+    "incident_id": "INC-003",
+    "incident_name": "Reconnaissance / Port Scan",
+    "severity": "medium",
+    "description": "External IP scanning internal hosts to map the network.",
+    "event_sequence": [
+      "port_scan (external IP, many ports)",
+      "failed_login (same source IP)"
+    ],
+    "indicators": {
+      "event_types": ["port_scan"],
+      "source": "external"
+    },
+    "expected_classification": "Reconnaissance",
+    "mitre_technique": "T1046"
+  },
+  {
+    "incident_id": "INC-004",
+    "incident_name": "Privilege Escalation",
+    "severity": "critical",
+    "description": "User account elevated to SYSTEM level unexpectedly.",
+    "event_sequence": [
+      "successful_login",
+      "privilege_escalation",
+      "file_access (SAM database or shadow file)"
+    ],
+    "indicators": {
+      "event_types": ["privilege_escalation"],
+      "escalated_to": "SYSTEM"
+    },
+    "expected_classification": "Privilege Escalation",
+    "mitre_technique": "T1068"
+  }
+]

@@ -1,5 +1,4 @@
 venv/
-data/
 .deepeval/
 .env
 __pycache__/
