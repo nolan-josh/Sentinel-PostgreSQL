@@ -12,7 +12,8 @@ import os
 from datetime import datetime, timedelta
 from faker import Faker    # generates fake user data
 import uuid
-
+import psycopg2
+from configparser import ConfigParser
 class DataGenerator:
     
     fake = Faker() # instace of faker to create fake data
@@ -162,38 +163,36 @@ class DataGenerator:
         methods, weights = zip(*EVENT_GENERATORS)
         return random.choices(methods, weights=weights, k=1)[0]
 
+def load_config(filename='..\database.ini', section='postgresql'):
+    parser = ConfigParser()
+    parser.read(filename)
+    
+    # get section, default to postgresql
+    config = {}
+    if parser.has_section(section):
+        params = parser.items(section)
+        for param in params:
+            config[param[0]] = param[1]
+    else:
+        raise Exception('Section {0} not found in the {1} file'.format(section, filename))
+    return config
 
+
+def connect(config):
+    """ Connect to the PostgreSQL database server """
+    try:
+        # connecting to the PostgreSQL server
+        with psycopg2.connect(**config) as conn:
+            print('Connected to the PostgreSQL server.')
+            return conn
+    except (psycopg2.DatabaseError, Exception) as error:
+        print(error)
 
 def main():
-    DG = DataGenerator()
-
-    EVENT_GENERATORS = [
-        (DG.successful_login_attempt, 40),       # 40% of logs
-        (DG.failed_login_attempt, 25),           # 25%
-        (DG.file_access, 15),            # 15%
-        (DG.powershell_execution, 10),   # 10%
-        (DG.suspicious_download, 4),     # 4%
-        (DG.port_scan, 3),               # 3%
-        (DG.malware_alert, 2),           # 2%
-        (DG.privilege_escalation, 1),    # 1%
-    ]
-
-
-  
-
-    if not os.path.exists(DG.OUTPUT_FOLDER):
-        os.makedirs(DG.OUTPUT_FOLDER)
-    print(f'Generating {DG.NUM_logs} at {DG.OUTPUT_FILE}')
-
-    with open(DG.OUTPUT_FILE, "w") as f:
-        for i in range(DG.NUM_logs):
-            method = DG.weighted_choice(EVENT_GENERATORS)
-            log = method()
-            log["log_ID"] = str(uuid.uuid4())
-            f.write(json.dumps(log)+ "\n")
-            
+    database_config = load_config()    
+    connection = connect(config=database_config)
+    cur = connection.cursor()
     print("Complete")
-            
             
 if __name__  == "__main__":
     main()

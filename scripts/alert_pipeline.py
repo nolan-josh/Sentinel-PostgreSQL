@@ -5,6 +5,7 @@ import asyncio
 from pymongo import MongoClient
 import json
 
+
 class ThreatDetector:
     
      # Known "bad" external IPs we'll plant in attack scenarios
