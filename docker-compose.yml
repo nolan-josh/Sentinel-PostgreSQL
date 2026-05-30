@@ -42,6 +42,21 @@ services:
       - "6333:6333"
     volumes: 
       - qdrant_data:/qdrant/storage
+  # postgres_db:
+  #   container_name: postgres
+  #   image: postgres
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     PGDATA: /data/postgres
+  #     POSTGRES_DB: bank
+  #   volumes:
+  #     - db:/data/postgres
+  #   ports:
+  #     - "5332:5432"
+  #   networks:
+  #     - db
+  #   restart: unless-stopped
 
 volumes: 
   #mongodb_data:
