@@ -10,5 +10,6 @@ agents/agent.py is the main script for calling the langgraph nodes and running t
 Current TO-DO: 
 - Porting the project from MongoDB to PostgreSQL
 - If an alert is of a certain security level, determined by the agent, send a notification via teams, email, or other communication to alert the admin. 
+- Potentially create a basic dashboard that is a live view of the postgreSQL DB 
 
 © 2026 Josh Nolan. All rights reserved. No part of this code may be used, distributed, or modified without explicit permission
